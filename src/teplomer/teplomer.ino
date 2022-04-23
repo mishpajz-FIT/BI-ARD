@@ -4,26 +4,50 @@
 #define tempPIN 3
 #define dhtType DHT22
 
+#define pollutionAnalogPIN A0
+#define pollutionDigitalPIN 5
+
 DHT tempSensor(tempPIN, dhtType);
 
 void setup() {
   Serial.begin(9600);
   tempSensor.begin();
+
+  pinMode(pollutionDigitalPIN, OUTPUT);
 }
 
 void loop() {
-  float t = tempSensor.readTemperature();
-  float h = tempSensor.readHumidity();
+  /* tempeature */
+  float measuredTemp = tempSensor.readTemperature();
+  float measuredHumi = tempSensor.readHumidity();
 
-  if (!isnan(t) && !isnan(h)) {
+  if (!isnan(measuredTemp) && !isnan(measuredHumi)) {
     Serial.print("tempeature: ");
-    Serial.print(t);
+    Serial.print(measuredTemp);
     Serial.print("; ");
     Serial.print("humidity: ");
-    Serial.println(h);
+    Serial.println(measuredHumi);
   } else {
-    Serial.println("tmp: err");
+    Serial.println("tmp || hmd: err");
   }
 
+
+  /* pollution */
+  float measuredPollVoltage = 0;
+  digitalWrite(pollutionDigitalPIN, LOW);
+  delayMicroseconds(280);
+  measuredPollVoltage = analogRead(pollutionAnalogPIN);
+  delayMicroseconds(40);
+  digitalWrite(pollutionDigitalPIN, HIGH);
+  delayMicroseconds(9800);
+  float measuredPollVoltageToDigital = measuredPollVoltage * (5.0 / 1024.0);
+
+  float measuredPollution = (0.17 * measuredPollVoltageToDigital) * 1000;
+  Serial.print(measuredPollVoltageToDigital);
+  Serial.print(" V; ");
+  Serial.print(" -> pollution: ");
+  Serial.print(measuredPollution);
+  Serial.println(" ug/m3");
+  
   delay(3000);
 }
