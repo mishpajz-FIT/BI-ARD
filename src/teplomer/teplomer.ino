@@ -1,5 +1,7 @@
+#include <U8glib.h>
 #include <DHT.h>
 #include <DHT_U.h>
+
 
 #define tempPIN 3
 #define dhtType DHT22
@@ -8,6 +10,9 @@
 #define pollutionDigitalPIN 5
 
 DHT tempSensor(tempPIN, dhtType);
+
+U8GLIB_SSD1306_128X64 display(U8G_I2C_OPT_NONE);
+long int displayRefresh = 0;
 
 void setup() {
   Serial.begin(9600);
@@ -48,6 +53,17 @@ void loop() {
   Serial.print(" -> pollution: ");
   Serial.print(measuredPollution);
   Serial.println(" ug/m3");
+
+  if (millis()-displayRefresh > 100) {
+    display.firstPage(); 
+    do {
+      display.setFont(u8g_font_unifont);
+      display.setPrintPos(0, 10);
+      display.print(measuredTemp);
+    } while (display.nextPage());
+
+    displayRefresh = millis();
+  }
   
   delay(3000);
 }
