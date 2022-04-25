@@ -133,7 +133,6 @@ public:
     };
 
     bool measuring;
-
     bool noData;
     enum State currentState;
     float currentValue;
@@ -155,13 +154,6 @@ public:
         } while (libraryDisplay.nextPage());
     }
 
-    void display(float value, bool data = false) {
-        currentValue = value;
-        noData = data;
-
-        draw();
-    }
-
     void raiseState() {
         if (currentState == 2) {
             currentState = 0;
@@ -175,6 +167,26 @@ TempeatureHumiditySensor * tempeatureAndHumiditySensor;
 PollutionSensor * pollutionSensor;
 
 Display * display;
+
+void passToDisplay() {
+    switch (display->currentState) {
+        case Display::State::tempeature:
+            display->currentValue = tempeatureAndHumiditySensor->tempeature();
+            display->noData = tempeatureAndHumiditySensor->validTempeature();
+            break;
+        case Display::State::humidity:
+            display->currentValue = tempeatureAndHumiditySensor->humidity();
+            display->noData = tempeatureAndHumiditySensor->validHumidity();
+            break;
+        case Display::State::pollution:
+            display->currentValue = pollutionSensor->pollution();
+            display->noData = pollutionSensor->validPollution();
+            break;
+        default:
+            break;
+    }
+    display->draw();
+}
 
 void measureAll() {
     display->measuring = true;
@@ -199,21 +211,7 @@ void measureAll() {
     }
 
     display->measuring = false;
-    
-    switch (display->currentState) {
-        case Display::State::tempeature:
-            display->display(tempeatureAndHumiditySensor->tempeature(), !tempeatureAndHumiditySensor->validTempeature());
-            break;
-        case Display::State::humidity:
-            display->display(tempeatureAndHumiditySensor->humidity(), !tempeatureAndHumiditySensor->validHumidity());
-            break;
-        case Display::State::pollution:
-            display->display(pollutionSensor->pollution(), !pollutionSensor->validPollution());
-            break;
-        default:
-            break;
-            display->draw();
-    }
+    passToDisplay();
 }
 
 void setup() {
