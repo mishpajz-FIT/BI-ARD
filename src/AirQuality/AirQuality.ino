@@ -1,6 +1,8 @@
+#include <Ethernet.h>
 #include <U8glib.h>
 #include <DHT.h>
 #include <DHT_U.h>
+
 
 #define tempeatureDigitalPIN 3
 #define pollutionAnalogPIN A0
