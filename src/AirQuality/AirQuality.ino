@@ -4,9 +4,10 @@
 #include <DHT_U.h>
 
 
-#define tempeatureDigitalPIN 3
-#define pollutionAnalogPIN A0
-#define pollutionDigitalPIN 5
+#define tempeatureDigitalPIN  3
+#define pollutionAnalogPIN    A0
+#define pollutionDigitalPIN   5
+#define buttonPIN             6
 
 
 class TempeatureHumiditySensor {
@@ -174,15 +175,15 @@ void passToDisplay() {
     switch (display->currentState) {
         case Display::State::tempeature:
             display->currentValue = tempeatureAndHumiditySensor->tempeature();
-            display->noData = tempeatureAndHumiditySensor->validTempeature();
+            display->noData = !tempeatureAndHumiditySensor->validTempeature();
             break;
         case Display::State::humidity:
             display->currentValue = tempeatureAndHumiditySensor->humidity();
-            display->noData = tempeatureAndHumiditySensor->validHumidity();
+            display->noData = !tempeatureAndHumiditySensor->validHumidity();
             break;
         case Display::State::pollution:
             display->currentValue = pollutionSensor->pollution();
-            display->noData = pollutionSensor->validPollution();
+            display->noData = !pollutionSensor->validPollution();
             break;
         default:
             break;
@@ -223,9 +224,28 @@ void setup() {
     pollutionSensor = new PollutionSensor();
 
     display = new Display();
+
+    display->draw();
+
+    pinMode(buttonPIN, INPUT_PULLUP);
 }
 
+unsigned long lastActionTime = 0;
+unsigned long lastDebounceTime = 0;
+
 void loop() {
-    measureAll();
-    delay(10000);
+
+    if (millis() - lastActionTime > 30000) {
+      measureAll();
+      lastActionTime = millis();
+    }
+
+    if ((millis() - lastDebounceTime) > 200) {
+      if (digitalRead(buttonPIN) == LOW && !display->measuring) {
+        display->raiseState();
+        passToDisplay();
+        lastDebounceTime = millis();
+        Serial.println("bttn");
+      }
+    }
 }
