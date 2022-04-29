@@ -14,8 +14,8 @@ IPAddress ip(192, 168, 0, 102);
 #define tempeatureDigitalPIN    5
 #define pollutionAnalogPIN      A0
 #define pollutionDigitalPIN     3
-#define co2RxPIN                2
-#define co2TxPIN                4
+#define co2RxPIN                4
+#define co2TxPIN                2
 #define buttonPIN               6
 #define redLedPIN               A1
 #define blueLedPIN              A2
@@ -106,8 +106,8 @@ class CO2Sensor {
     MHZ19 * mhz19uart;
 
 public:
-    CO2Sensor() : mhz19uart(new MHZ19(co2RxPIN, co2TxPIN)) {
-        mhz19uart->begin(co2RxPIN, co2TxPIN);
+    CO2Sensor() : mhz19uart(new MHZ19(co2TxPIN, co2RxPIN)) {
+        mhz19uart->begin(co2TxPIN, co2RxPIN);
     }
 
     void measure() {
