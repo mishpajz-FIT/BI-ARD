@@ -387,14 +387,7 @@ void loop() {
                 char c = client.read();
 
                 if (c == '\n' && blankRequestLine) {
-                    client.println("HTTP/1.1 200 OK");
-                    client.println("Content-Type: text/html");
-                    client.println("Connection: close");
-                    client.println();
-                    client.println("<!DOCTYPE HTML>");
-                    client.println("<html>");
-                    client.println("hello world!");
-                    client.println("</html>");
+                    createServerResponse(client);
                     break;
                 }
                 if (c == '\n') {
