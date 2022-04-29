@@ -5,6 +5,11 @@
 #include <DHT_U.h>
 
 
+byte mac [] = {
+    0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED
+}
+IPAdress ip(192, 168, 0, 102)
+
 
 #define tempeatureDigitalPIN    5
 #define pollutionAnalogPIN      A0
@@ -211,6 +216,8 @@ CO2Sensor * co2Sensor;
 
 Display * display;
 
+EthernetServer server(80);
+
 void passToDisplay() {
     switch (display->currentState) {
         case Display::State::tempeature:
@@ -243,25 +250,25 @@ void measureAll() {
     co2Sensor->measure();
 
     if (tempeatureAndHumiditySensor->validTempeature()) {
-        Serial.print("tempeature: ");
+        Serial.print("Measurement:: tempeature: ");
         Serial.print(tempeatureAndHumiditySensor->tempeature());
         Serial.println(" C");
     }
 
     if (tempeatureAndHumiditySensor->validHumidity()) {
-        Serial.print("humidity: ");
+        Serial.print("Measurement:: humidity: ");
         Serial.print(tempeatureAndHumiditySensor->humidity());
         Serial.println(" %");
     }
 
     if (pollutionSensor->validPollution()) {
-        Serial.print("pollution: ");
+        Serial.print("Measurement:: pollution: ");
         Serial.print(pollutionSensor->pollution());
         Serial.println(" ug/m3");
     }
 
     if (co2Sensor->validCO2()) {
-        Serial.print("co2: ");
+        Serial.print("Measurement:: co2: ");
         Serial.print(co2Sensor->co2());
         Serial.println(" ppm");
     }
@@ -272,14 +279,27 @@ void measureAll() {
 
 void setup() {
     Serial.begin(9600);
+    while (!Serial) {
+        ;
+    }
 
     tempeatureAndHumiditySensor = new TempeatureHumiditySensor();
     pollutionSensor = new PollutionSensor();
     co2Sensor = new CO2Sensor();
 
     display = new Display();
-
     display->draw();
+
+    Ethernet.begin(mac, ip);
+    if (Ethernet.hardwareStatus() == EthernetNoHardware) {
+        Serial.println("Server:: Error: Ethernet hardware not connected");
+    }
+    if (Ethernet.linkStatus() == LinkOFF) {
+        Serial.println("Server:: Ethernet cable not plugged in.");
+    }
+    server.begin();
+    Serial.print("Server:: Starting server at ");
+    Serial.println(Ethernet.localIP());
 
     pinMode(buttonPIN, INPUT_PULLUP);
 }
@@ -299,7 +319,37 @@ void loop() {
         display->raiseState();
         passToDisplay();
         lastDebounceTime = millis();
-        Serial.println("bttn");
       }
+    }
+
+    EthernetClient client = server.available();
+    if (client && !display->measuring) {
+        Serial.println("Server:: New server connection");
+        bool blankRequestLine = true;
+        while (client.connected()) {
+            if (client.available()) {
+                char c = client.read();
+
+                if (c == '\n' && blankRequestLine) {
+                    client.println("HTTP/1.1 200 OK");
+                    client.println("Content-Type: text/html");
+                    client.println("Connection: close");
+                    client.println();
+                    client.println("<!DOCTYPE HTML>");
+                    client.println("<html>");
+                    client.println("hello world!");
+                    client.println("</html>");
+                    break;
+                }
+                if (c == '\n') {
+                    blankRequestLine = true;
+                } else if (c != '\r') {
+                    blankRequestLine = false;
+                }
+            }
+        }
+        delay(1);
+        client.stop();
+        Serial.println("Server:: Ended server connection");
     }
 }
