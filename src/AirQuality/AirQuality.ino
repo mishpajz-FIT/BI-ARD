@@ -5,13 +5,20 @@
 #include <DHT_U.h>
 
 
+byte mac [] = {
+    0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED
+};
+IPAddress ip(192, 168, 0, 102);
+
 
 #define tempeatureDigitalPIN    5
 #define pollutionAnalogPIN      A0
 #define pollutionDigitalPIN     3
-#define co2RxPIN                2
-#define co2TxPIN                4
+#define co2RxPIN                4
+#define co2TxPIN                2
 #define buttonPIN               6
+#define redLedPIN               A1
+#define blueLedPIN              A2
 
 
 class TempeatureHumiditySensor {
@@ -99,14 +106,14 @@ class CO2Sensor {
     MHZ19 * mhz19uart;
 
 public:
-    CO2Sensor() : mhz19uart(new MHZ19(co2RxPIN, co2TxPIN)) {
-        mhz19uart->begin(co2RxPIN, co2TxPIN);
+    CO2Sensor() : mhz19uart(new MHZ19(co2TxPIN, co2RxPIN)) {
+        mhz19uart->begin(co2TxPIN, co2RxPIN);
     }
 
     void measure() {
         measurement_t co2measured = mhz19uart->getMeasurement();
         measuredCO2 = map(co2measured.co2_ppm, 0, 5000, 0, 2000);
-        if (measuredCO2 > 0) {
+        if (measuredCO2 > 200) {
             isCO2Valid = true;
         } else {
             isCO2Valid = false;
@@ -137,28 +144,11 @@ private:
     }
 
     void redrawMesurement() {
-        String stringValue(currentValue);
         String stringName;
+        String stringValue(currentValue);
+        stringValue += " ";
 
-        switch (currentState) {
-            case tempeature:
-                stringName = "Tempeature";
-                stringValue += " C";
-                break;
-            case humidity:
-                stringName = "Humidity";
-                stringValue += " %";
-                break;
-            case pollution:
-                stringName = "Pollution";
-                stringValue += " ug/m3";
-                break;
-            case co2:
-                stringName = "CO2";
-                stringValue += " ppm";
-            default:
-                break;
-        }
+        categoryNameAndUnit(stringName, stringValue, currentState);
 
         libraryDisplay.setPrintPos(64 - (libraryDisplay.getStrWidth(stringName.c_str()) / 2), 10);
         libraryDisplay.print(stringName.c_str());
@@ -203,6 +193,28 @@ public:
             currentState = currentState + 1;
         }
     }
+
+    static void categoryNameAndUnit(String & name, String & unit, State state) {
+        switch (state) {
+            case tempeature:
+                name += "Tempeature";
+                unit += "C";
+                break;
+            case humidity:
+                name += "Humidity";
+                unit += "%";
+                break;
+            case pollution:
+                name += "Pollution";
+                unit += "ug/m3";
+                break;
+            case co2:
+                name += "CO2";
+                unit += "ppm";
+            default:
+                break;
+        }
+    }
 };
 
 TempeatureHumiditySensor * tempeatureAndHumiditySensor;
@@ -210,6 +222,8 @@ PollutionSensor * pollutionSensor;
 CO2Sensor * co2Sensor;
 
 Display * display;
+
+EthernetServer server(80);
 
 void passToDisplay() {
     switch (display->currentState) {
@@ -234,6 +248,71 @@ void passToDisplay() {
     display->draw();
 }
 
+void lightenLED() {
+    digitalWrite(redLedPIN, LOW);
+    digitalWrite(blueLedPIN, LOW);
+    if (co2Sensor->co2() > 1000
+        || pollutionSensor->pollution() > 300) {
+        digitalWrite(redLedPIN, HIGH);
+    } else {
+        digitalWrite(blueLedPIN, HIGH);
+    }
+}
+
+void createServerResponseMeasurement(EthernetClient & client, const String & name, const String & unit, const float & value, bool validData) {
+    client.println("<tr>");
+    client.print("<td>");
+    client.print(name);
+    client.println("</td>");
+    if (validData) {
+        client.print("<td>");
+        client.print(value);
+        client.println("</td>");
+        client.print("<td>");
+        client.print(unit);
+        client.println("</td>");
+    } else {
+        client.print("<td>");
+        client.print("No data");
+        client.println("<td>");
+    }
+    client.println("</tr>");
+}
+
+void createServerResponse(EthernetClient & client) {
+    client.println("HTTP/1.1 200 OK");
+    client.println("Content-Type: text/html");
+    client.println("Connection: close");
+    client.println();
+    client.println("<!DOCTYPE HTML>");
+    client.println("<html>");
+    client.println("<h1>Air Quality Measurment Station</h1>");
+    client.println("<table>");
+    client.println("<tr>");
+    client.println("<th>Sensor</th>");
+    client.println("<th>Value</th>");
+    client.println("<th>Unit</th>");
+    client.println("</tr>");
+    String name = "";
+    String unit = "";
+    Display::categoryNameAndUnit(name, unit, Display::State::tempeature);
+    createServerResponseMeasurement(client, name, unit, tempeatureAndHumiditySensor->tempeature(), tempeatureAndHumiditySensor->validTempeature());
+    name = "";
+    unit = "";
+    Display::categoryNameAndUnit(name, unit, Display::State::humidity);
+    createServerResponseMeasurement(client, name, unit, tempeatureAndHumiditySensor->humidity(), tempeatureAndHumiditySensor->validHumidity());
+    name = "";
+    unit = "";
+    Display::categoryNameAndUnit(name, unit, Display::State::pollution);
+    createServerResponseMeasurement(client, name, unit, pollutionSensor->pollution(), pollutionSensor->validPollution());
+    name = "";
+    unit = "";
+    Display::categoryNameAndUnit(name, unit, Display::State::co2);
+    createServerResponseMeasurement(client, name, unit, co2Sensor->co2(), co2Sensor->validCO2());
+    client.println("</table>");
+    client.println("</html>");
+}
+
 void measureAll() {
     display->measuring = true;
     display->draw();
@@ -242,32 +321,12 @@ void measureAll() {
     pollutionSensor->measure();
     co2Sensor->measure();
 
-    if (tempeatureAndHumiditySensor->validTempeature()) {
-        Serial.print("tempeature: ");
-        Serial.print(tempeatureAndHumiditySensor->tempeature());
-        Serial.println(" C");
-    }
-
-    if (tempeatureAndHumiditySensor->validHumidity()) {
-        Serial.print("humidity: ");
-        Serial.print(tempeatureAndHumiditySensor->humidity());
-        Serial.println(" %");
-    }
-
-    if (pollutionSensor->validPollution()) {
-        Serial.print("pollution: ");
-        Serial.print(pollutionSensor->pollution());
-        Serial.println(" ug/m3");
-    }
-
-    if (co2Sensor->validCO2()) {
-        Serial.print("co2: ");
-        Serial.print(co2Sensor->co2());
-        Serial.println(" ppm");
-    }
+    Serial.println("Measurement:: Measuring");
 
     display->measuring = false;
     passToDisplay();
+
+    lightenLED();
 }
 
 void setup() {
@@ -278,10 +337,25 @@ void setup() {
     co2Sensor = new CO2Sensor();
 
     display = new Display();
-
     display->draw();
 
+    Ethernet.begin(mac, ip);
+    if (Ethernet.hardwareStatus() == EthernetNoHardware) {
+        Serial.println("Server:: Error: Hardware not connected");
+    }
+    if (Ethernet.linkStatus() == LinkOFF) {
+        Serial.println("Server:: Cable not plugged in.");
+    }
+    server.begin();
+    Serial.print("Server:: Starting server at ");
+    Serial.println(Ethernet.localIP());
+
     pinMode(buttonPIN, INPUT_PULLUP);
+
+    pinMode(redLedPIN, OUTPUT);
+    pinMode(blueLedPIN, OUTPUT);
+
+    measureAll();
 }
 
 unsigned long lastActionTime = 0;
@@ -299,7 +373,30 @@ void loop() {
         display->raiseState();
         passToDisplay();
         lastDebounceTime = millis();
-        Serial.println("bttn");
       }
+    }
+
+    EthernetClient client = server.available();
+    if (client && !display->measuring) {
+        Serial.println("Server:: New connection");
+        bool blankRequestLine = true;
+        while (client.connected()) {
+            if (client.available()) {
+                char c = client.read();
+
+                if (c == '\n' && blankRequestLine) {
+                    createServerResponse(client);
+                    break;
+                }
+                if (c == '\n') {
+                    blankRequestLine = true;
+                } else if (c != '\r') {
+                    blankRequestLine = false;
+                }
+            }
+        }
+        delay(1);
+        client.stop();
+        Serial.println("Server:: Ended connection");
     }
 }
