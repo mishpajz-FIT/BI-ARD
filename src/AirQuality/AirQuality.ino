@@ -17,6 +17,8 @@ IPAddress ip(192, 168, 0, 102);
 #define co2RxPIN                2
 #define co2TxPIN                4
 #define buttonPIN               6
+#define redLedPIN               A1
+#define blueLedPIN              A2
 
 
 class TempeatureHumiditySensor {
@@ -246,6 +248,17 @@ void passToDisplay() {
     display->draw();
 }
 
+void lightenLED() {
+    digitalWrite(redLedPIN, LOW);
+    digitalWrite(blueLedPIN, LOW);
+    if (co2Sensor->co2() > 1000
+        || pollutionSensor->pollution() > 300) {
+        digitalWrite(redLedPIN, HIGH);
+    } else {
+        digitalWrite(blueLedPIN, HIGH);
+    }
+}
+
 void createServerResponseMeasurement(EthernetClient & client, const String & name, const String & unit, const float & value, bool validData) {
     client.println("<tr>");
     client.print("<td>");
@@ -308,32 +321,12 @@ void measureAll() {
     pollutionSensor->measure();
     co2Sensor->measure();
 
-    if (tempeatureAndHumiditySensor->validTempeature()) {
-        Serial.print("Measurement:: tempeature: ");
-        Serial.print(tempeatureAndHumiditySensor->tempeature());
-        Serial.println(" C");
-    }
-
-    if (tempeatureAndHumiditySensor->validHumidity()) {
-        Serial.print("Measurement:: humidity: ");
-        Serial.print(tempeatureAndHumiditySensor->humidity());
-        Serial.println(" %");
-    }
-
-    if (pollutionSensor->validPollution()) {
-        Serial.print("Measurement:: pollution: ");
-        Serial.print(pollutionSensor->pollution());
-        Serial.println(" ug/m3");
-    }
-
-    if (co2Sensor->validCO2()) {
-        Serial.print("Measurement:: co2: ");
-        Serial.print(co2Sensor->co2());
-        Serial.println(" ppm");
-    }
+    Serial.print("Measurement:: Measuring");
 
     display->measuring = false;
     passToDisplay();
+
+    lightenLED();
 }
 
 void setup() {
@@ -348,16 +341,21 @@ void setup() {
 
     Ethernet.begin(mac, ip);
     if (Ethernet.hardwareStatus() == EthernetNoHardware) {
-        Serial.println("Server:: Error: Ethernet hardware not connected");
+        Serial.println("Server:: Error: Hardware not connected");
     }
     if (Ethernet.linkStatus() == LinkOFF) {
-        Serial.println("Server:: Ethernet cable not plugged in.");
+        Serial.println("Server:: Cable not plugged in.");
     }
     server.begin();
     Serial.print("Server:: Starting server at ");
     Serial.println(Ethernet.localIP());
 
     pinMode(buttonPIN, INPUT_PULLUP);
+
+    pinMode(redLedPIN, OUTPUT);
+    pinMode(blueLedPIN, OUTPUT);
+
+    measureAll();
 }
 
 unsigned long lastActionTime = 0;
@@ -380,7 +378,7 @@ void loop() {
 
     EthernetClient client = server.available();
     if (client && !display->measuring) {
-        Serial.println("Server:: New server connection");
+        Serial.println("Server:: New connection");
         bool blankRequestLine = true;
         while (client.connected()) {
             if (client.available()) {
@@ -399,6 +397,6 @@ void loop() {
         }
         delay(1);
         client.stop();
-        Serial.println("Server:: Ended server connection");
+        Serial.println("Server:: Ended connection");
     }
 }
