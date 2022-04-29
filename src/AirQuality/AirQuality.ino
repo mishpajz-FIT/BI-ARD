@@ -142,28 +142,11 @@ private:
     }
 
     void redrawMesurement() {
-        String stringValue(currentValue);
         String stringName;
+        String stringValue(currentValue);
+        stringValue += " ";
 
-        switch (currentState) {
-            case tempeature:
-                stringName = "Tempeature";
-                stringValue += " C";
-                break;
-            case humidity:
-                stringName = "Humidity";
-                stringValue += " %";
-                break;
-            case pollution:
-                stringName = "Pollution";
-                stringValue += " ug/m3";
-                break;
-            case co2:
-                stringName = "CO2";
-                stringValue += " ppm";
-            default:
-                break;
-        }
+        categoryNameAndUnit(stringName, stringValue, currentState);
 
         libraryDisplay.setPrintPos(64 - (libraryDisplay.getStrWidth(stringName.c_str()) / 2), 10);
         libraryDisplay.print(stringName.c_str());
@@ -208,6 +191,28 @@ public:
             currentState = currentState + 1;
         }
     }
+
+    static void categoryNameAndUnit(String & name, String & unit, State state) {
+        switch (state) {
+            case tempeature:
+                name += "Tempeature";
+                unit += "C";
+                break;
+            case humidity:
+                name += "Humidity";
+                unit += "%";
+                break;
+            case pollution:
+                name += "Pollution";
+                unit += "ug/m3";
+                break;
+            case co2:
+                name += "CO2";
+                unit += "ppm";
+            default:
+                break;
+        }
+    }
 };
 
 TempeatureHumiditySensor * tempeatureAndHumiditySensor;
@@ -239,6 +244,60 @@ void passToDisplay() {
             break;
     }
     display->draw();
+}
+
+void createServerResponseMeasurement(EthernetClient & client, const String & name, const String & unit, const float & value, bool noData) {
+    client.println("<tr>");
+    client.print("<td>");
+    client.print(name);
+    client.println("</td>");
+    if (!noData) {
+        client.print("<td>");
+        client.print(value);
+        client.println("</td>");
+        client.print("<td>");
+        client.print(unit);
+        client.println("</td>");
+    } else {
+        client.print("<td>");
+        client.print("No data");
+        client.println("<td>");
+    }
+    client.println("</tr>");
+}
+
+void createServerResponse(EthernetClient & client) {
+    client.println("HTTP/1.1 200 OK");
+    client.println("Content-Type: text/html");
+    client.println("Connection: close");
+    client.println();
+    client.println("<!DOCTYPE HTML>");
+    client.println("<html>");
+    client.println("<h1>Air Quality Measurment Station</h1>");
+    client.println("<table>");
+    client.println("<tr>");
+    client.println("<th>Sensor</th>");
+    client.println("<th>Value</th>");
+    client.println("<th>Unit</th>");
+    client.println("</tr>");
+    String name = "";
+    String unit = "";
+    Display::categoryNameAndUnit(name, unit, Display::State::tempeature);
+    createServerResponseMeasurement(client, name, unit, tempeatureAndHumiditySensor->tempeature(), tempeatureAndHumiditySensor->!validTempeature());
+    name = "";
+    unit = "";
+    Display::categoryNameAndUnit(name, unit, Display::State::humidity);
+    createServerResponseMeasurement(client, name, unit, tempeatureAndHumiditySensor->humidity(), tempeatureAndHumiditySensor->!validHumidity());
+    name = "";
+    unit = "";
+    Display::categoryNameAndUnit(name, unit, Display::State::pollution);
+    createServerResponseMeasurement(client, name, unit, pollutionSensor->pollution(), pollutionSensor->!validPollution());
+    name = "";
+    unit = "";
+    Display::categoryNameAndUnit(name, unit, Display::State::tempeature);
+    createServerResponseMeasurement(client, name, unit, co2Sensor->co2(), co2Sensor->!validCO2());
+    client.println("</table>");
+    client.println("</html>");
 }
 
 void measureAll() {
@@ -279,9 +338,6 @@ void measureAll() {
 
 void setup() {
     Serial.begin(9600);
-    while (!Serial) {
-        ;
-    }
 
     tempeatureAndHumiditySensor = new TempeatureHumiditySensor();
     pollutionSensor = new PollutionSensor();
