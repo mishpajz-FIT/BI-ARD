@@ -1,13 +1,17 @@
+#include <MHZ19.h>
 #include <Ethernet.h>
 #include <U8glib.h>
 #include <DHT.h>
 #include <DHT_U.h>
 
 
-#define tempeatureDigitalPIN  3
-#define pollutionAnalogPIN    A0
-#define pollutionDigitalPIN   5
-#define buttonPIN             6
+
+#define tempeatureDigitalPIN    5
+#define pollutionAnalogPIN      A0
+#define pollutionDigitalPIN     3
+#define co2RxPIN                2
+#define co2TxPIN                4
+#define buttonPIN               6
 
 
 class TempeatureHumiditySensor {
@@ -69,7 +73,8 @@ public:
         digitalWrite(pollutionDigitalPIN, HIGH);
         delayMicroseconds(9800);
         float measuredPollVoltageToDigital = measuredPollVoltage * (5.0 / 1024.0);
-        measuredPollution = (0.17 * measuredPollVoltageToDigital) * 1000;
+        Serial.println(measuredPollVoltageToDigital);
+        measuredPollution = (0.170 * measuredPollVoltageToDigital - 0.11) * 1000.0;
 
         if (measuredPollution > 0) {
             isPollutionValid = true;
@@ -84,6 +89,37 @@ public:
 
     bool validPollution() {
         return isPollutionValid;
+    }
+};
+
+class CO2Sensor {
+
+    float measuredCO2;
+    bool isCO2Valid;
+
+    MHZ19 * mhz19uart;
+
+public:
+    CO2Sensor() : mhz19uart(new MHZ19(co2RxPIN, co2TxPIN)) {
+        mhz19uart->begin(co2RxPIN, co2TxPIN);
+    }
+
+    void measure() {
+        measurement_t co2measured = mhz19uart->getMeasurement();
+        measuredCO2 = map(co2measured.co2_ppm, 0, 5000, 0, 2000);
+        if (measuredCO2 > 0) {
+            isCO2Valid = true;
+        } else {
+            isCO2Valid = false;
+        }
+    }
+
+    float co2() {
+        return measuredCO2;
+    }
+
+    float validCO2() {
+        return isCO2Valid;
     }
 };
 
@@ -132,7 +168,8 @@ public:
     enum State {
         tempeature = 0,
         humidity = 1,
-        pollution = 2
+        pollution = 2,
+        co2 = 3
     };
 
     bool measuring;
@@ -168,6 +205,7 @@ public:
 
 TempeatureHumiditySensor * tempeatureAndHumiditySensor;
 PollutionSensor * pollutionSensor;
+CO2Sensor * co2Sensor;
 
 Display * display;
 
@@ -185,6 +223,9 @@ void passToDisplay() {
             display->currentValue = pollutionSensor->pollution();
             display->noData = !pollutionSensor->validPollution();
             break;
+        case Display::State::co2:
+            display->currentValue = co2Sensor->co2();
+            display->noData = !co2Sensor->validCO2();
         default:
             break;
     }
@@ -200,17 +241,26 @@ void measureAll() {
 
     if (tempeatureAndHumiditySensor->validTempeature()) {
         Serial.print("tempeature: ");
-        Serial.println(tempeatureAndHumiditySensor->tempeature());
+        Serial.print(tempeatureAndHumiditySensor->tempeature());
+        Serial.println(" C");
     }
 
     if (tempeatureAndHumiditySensor->validHumidity()) {
         Serial.print("humidity: ");
         Serial.println(tempeatureAndHumiditySensor->humidity());
+        Serial.println(" %");
     }
 
     if (pollutionSensor->validPollution()) {
         Serial.print("pollution: ");
-        Serial.println(pollutionSensor->pollution());
+        Serial.print(pollutionSensor->pollution());
+        Serial.println(" ug/m3");
+    }
+
+    if (co2Sensor->validCO2()) {
+        Serial.print("co2: ");
+        Serial.print(co2Sensor->co2());
+        Serial.println(" ppm");
     }
 
     display->measuring = false;
@@ -222,6 +272,7 @@ void setup() {
 
     tempeatureAndHumiditySensor = new TempeatureHumiditySensor();
     pollutionSensor = new PollutionSensor();
+    co2Sensor = new CO2Sensor();
 
     display = new Display();
 
@@ -235,7 +286,7 @@ unsigned long lastDebounceTime = 0;
 
 void loop() {
 
-    if (millis() - lastActionTime > 30000) {
+    if (millis() - lastActionTime > 7000) {
       measureAll();
       lastActionTime = millis();
     }
