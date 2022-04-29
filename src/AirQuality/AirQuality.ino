@@ -246,12 +246,12 @@ void passToDisplay() {
     display->draw();
 }
 
-void createServerResponseMeasurement(EthernetClient & client, const String & name, const String & unit, const float & value, bool noData) {
+void createServerResponseMeasurement(EthernetClient & client, const String & name, const String & unit, const float & value, bool validData) {
     client.println("<tr>");
     client.print("<td>");
     client.print(name);
     client.println("</td>");
-    if (!noData) {
+    if (validData) {
         client.print("<td>");
         client.print(value);
         client.println("</td>");
@@ -283,19 +283,19 @@ void createServerResponse(EthernetClient & client) {
     String name = "";
     String unit = "";
     Display::categoryNameAndUnit(name, unit, Display::State::tempeature);
-    createServerResponseMeasurement(client, name, unit, tempeatureAndHumiditySensor->tempeature(), tempeatureAndHumiditySensor->!validTempeature());
+    createServerResponseMeasurement(client, name, unit, tempeatureAndHumiditySensor->tempeature(), tempeatureAndHumiditySensor->validTempeature());
     name = "";
     unit = "";
     Display::categoryNameAndUnit(name, unit, Display::State::humidity);
-    createServerResponseMeasurement(client, name, unit, tempeatureAndHumiditySensor->humidity(), tempeatureAndHumiditySensor->!validHumidity());
+    createServerResponseMeasurement(client, name, unit, tempeatureAndHumiditySensor->humidity(), tempeatureAndHumiditySensor->validHumidity());
     name = "";
     unit = "";
     Display::categoryNameAndUnit(name, unit, Display::State::pollution);
-    createServerResponseMeasurement(client, name, unit, pollutionSensor->pollution(), pollutionSensor->!validPollution());
+    createServerResponseMeasurement(client, name, unit, pollutionSensor->pollution(), pollutionSensor->validPollution());
     name = "";
     unit = "";
-    Display::categoryNameAndUnit(name, unit, Display::State::tempeature);
-    createServerResponseMeasurement(client, name, unit, co2Sensor->co2(), co2Sensor->!validCO2());
+    Display::categoryNameAndUnit(name, unit, Display::State::co2);
+    createServerResponseMeasurement(client, name, unit, co2Sensor->co2(), co2Sensor->validCO2());
     client.println("</table>");
     client.println("</html>");
 }
