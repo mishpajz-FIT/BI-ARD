@@ -73,7 +73,6 @@ public:
         digitalWrite(pollutionDigitalPIN, HIGH);
         delayMicroseconds(9800);
         float measuredPollVoltageToDigital = measuredPollVoltage * (5.0 / 1024.0);
-        Serial.println(measuredPollVoltageToDigital);
         measuredPollution = (0.170 * measuredPollVoltageToDigital - 0.11) * 1000.0;
 
         if (measuredPollution > 0) {
@@ -154,6 +153,9 @@ private:
                 stringName = "Pollution";
                 stringValue += " ug/m3";
                 break;
+            case co2:
+                stringName = "CO2";
+                stringValue += " ppm";
             default:
                 break;
         }
@@ -195,7 +197,7 @@ public:
     }
 
     void raiseState() {
-        if (currentState == 2) {
+        if (currentState == 3) {
             currentState = 0;
         } else {
             currentState = currentState + 1;
@@ -238,6 +240,7 @@ void measureAll() {
 
     tempeatureAndHumiditySensor->measure();
     pollutionSensor->measure();
+    co2Sensor->measure();
 
     if (tempeatureAndHumiditySensor->validTempeature()) {
         Serial.print("tempeature: ");
@@ -247,7 +250,7 @@ void measureAll() {
 
     if (tempeatureAndHumiditySensor->validHumidity()) {
         Serial.print("humidity: ");
-        Serial.println(tempeatureAndHumiditySensor->humidity());
+        Serial.print(tempeatureAndHumiditySensor->humidity());
         Serial.println(" %");
     }
 
