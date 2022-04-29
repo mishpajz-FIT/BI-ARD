@@ -113,7 +113,7 @@ public:
     void measure() {
         measurement_t co2measured = mhz19uart->getMeasurement();
         measuredCO2 = map(co2measured.co2_ppm, 0, 5000, 0, 2000);
-        if (measuredCO2 > 0) {
+        if (measuredCO2 > 200) {
             isCO2Valid = true;
         } else {
             isCO2Valid = false;
@@ -321,7 +321,7 @@ void measureAll() {
     pollutionSensor->measure();
     co2Sensor->measure();
 
-    Serial.print("Measurement:: Measuring");
+    Serial.println("Measurement:: Measuring");
 
     display->measuring = false;
     passToDisplay();
