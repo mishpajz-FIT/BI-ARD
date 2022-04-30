@@ -255,8 +255,8 @@ private:
      * @param top Distance from top of screen
      */
     void redrawMessage(const String & message, int top) {
-        libraryDisplay.setPrintPos(64 - (libraryDisplay.getStrWidth(message) / 2), top);
-        libraryDisplay.print(message);
+        libraryDisplay.setPrintPos(64 - (libraryDisplay.getStrWidth(message.c_str()) / 2), top);
+        libraryDisplay.print(message.c_str());
     }
 
     /**
@@ -270,10 +270,8 @@ private:
 
         categoryNameAndUnit(stringName, stringValue, currentState); //< Get name of the measurand and unit of data
 
-        libraryDisplay.setPrintPos(64 - (libraryDisplay.getStrWidth(stringName.c_str()) / 2), 10); //Draw sensor name
-        libraryDisplay.print(stringName.c_str());
-        libraryDisplay.setPrintPos(64 - (libraryDisplay.getStrWidth(stringValue.c_str()) / 2), 30); //Draw data value and unit
-        libraryDisplay.print(stringValue.c_str());
+        redrawMessage(stringName, 10); //Draw sensor name
+        redrawMessage(stringValue, 30); //Draw data value and unit
     }
 
 public:
@@ -319,7 +317,7 @@ public:
         if (currentState == 3) {
             currentState = 0;
         } else {
-            currentState++;
+            currentState = currentState + 1;
         }
     }
 
