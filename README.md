@@ -1,6 +1,6 @@
 # BI-ARD
 
-Interactive applications with Arduino course at FIT CTU.
+This project was created as a part of my 'Interactive applications with Arduino' course at FIT CTU.
 
 The repository contains the main project of the course for Arduino (UNO).
 
